@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f1115" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ClosetOS" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>ClosetOS — Neutral &amp; Boots Outfit Engine</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #171a21;
+      --surface-2: #1f242e;
+      --border: #2a303c;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #d4a373;
+      --accent-soft: rgba(212, 163, 115, 0.14);
+      --green: #4ade80;
+      --red: #f87171;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      min-height: 100vh;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(15, 17, 21, 0.92);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand span {
+      font-size: 0.78rem;
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      background: var(--surface);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 7px 14px;
+      border-radius: 7px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .tab-btn:hover:not(.active) {
+      color: var(--text);
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* Builder / Picker Layout */
+    .picker-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 880px) {
+      .picker-layout { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .panel-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .category-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .pill {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .pill.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .item-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 64vh;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .item-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      text-align: left;
+      background: var(--surface-2);
+      border: 1px solid transparent;
+      color: var(--text);
+      padding: 9px 11px;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .item-btn:hover {
+      border-color: var(--border);
+      background: #252b37;
+    }
+
+    .item-btn.selected {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      flex-shrink: 0;
+    }
+
+    .item-meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-sub {
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+
+    /* Right column: Results */
+    .controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 13px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .btn:hover { background: #282e3b; }
+
+    .btn-accent {
+      background: var(--accent);
+      color: #111;
+      border-color: var(--accent);
+    }
+
+    .btn-accent:hover { filter: brightness(1.08); }
+
+    .btn-danger {
+      color: var(--red);
+      border-color: rgba(248, 113, 113, 0.3);
+    }
+
+    .outfit-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .outfit-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .outfit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+    }
+
+    .badge.smart { color: #93c5fd; background: rgba(147, 197, 253, 0.12); }
+    .badge.cool { color: #fcd34d; background: rgba(252, 211, 77, 0.12); }
+    .badge.cold { color: #a5b4fc; background: rgba(165, 180, 252, 0.12); }
+    .badge.mild { color: #86efac; background: rgba(134, 239, 172, 0.12); }
+
+    .star-btn {
+      background: transparent;
+      border: none;
+      font-size: 1.15rem;
+      cursor: pointer;
+      color: var(--muted);
+      line-height: 1;
+    }
+
+    .star-btn.saved { color: var(--accent); }
+
+    .outfit-pieces {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .piece-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 0.86rem;
+    }
+
+    .piece-role {
+      font-size: 0.7rem;
+      color: var(--muted);
+      width: 56px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+    }
+
+    .outfit-note {
+      font-size: 0.76rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      margin-top: auto;
+    }
+
+    /* Closet Inventory Tab */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    input, select {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .inv-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .stats-bar strong { color: var(--text); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <h1>ClosetOS</h1>
+        <span>Neutral &amp; Boots Engine</span>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="picker">Outfit Finder</button>
+        <button class="tab-btn" data-tab="saved">Saved Looks (<span id="savedCount">0</span>)</button>
+        <button class="tab-btn" data-tab="closet">My Closet (<span id="closetCount">0</span>)</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- TAB 1: OUTFIT FINDER -->
+    <section id="tab-picker" class="view active">
+      <div class="picker-layout">
+        <div class="panel">
+          <div class="panel-title">
+            <span>1. Pick Any Item</span>
+            <button class="pill" id="clearSelectionBtn" style="display:none;">Clear</button>
+          </div>
+          <div class="category-pills" id="pickerCatPills">
+            <button class="pill active" data-cat="top">Tops</button>
+            <button class="pill" data-cat="layer">Layers</button>
+            <button class="pill" data-cat="bottom">Bottoms</button>
+            <button class="pill" data-cat="footwear">Boots / Shoes</button>
+          </div>
+          <div class="item-list" id="pickerItemList"></div>
+        </div>
+
+        <div class="panel">
+          <div class="controls-bar">
+            <div>
+              <div class="panel-title" style="margin-bottom:4px;">2. Valid Outfits From Your Closet</div>
+              <div id="resultsSubtitle" style="font-size:0.84rem;color:var(--muted);">Select a shirt (or any piece) on the left, or hit Shuffle.</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-accent" id="shuffleBtn">Shuffle 1 Look</button>
+            </div>
+          </div>
+
+          <div class="category-pills" id="weatherPills">
+            <button class="pill active" data-weather="all">All Weather</button>
+            <button class="pill" data-weather="mild">Mild / Solo</button>
+            <button class="pill" data-weather="cool">Cool / Layered</button>
+            <button class="pill" data-weather="cold">Cold Winter</button>
+            <button class="pill" data-weather="smart">Date Night / Smart</button>
+          </div>
+
+          <div id="outfitResults" class="outfit-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: SAVED LOOKS -->
+    <section id="tab-saved" class="view">
+      <div class="panel">
+        <div class="controls-bar">
+          <div>
+            <div class="panel-title" style="margin-bottom:4px;">Your Saved Morning Looks</div>
+            <div style="font-size:0.84rem;color:var(--muted);">Star any outfit in the Outfit Finder to pin it here for 5-second mornings.</div>
+          </div>
+          <button class="btn btn-danger" id="clearSavedBtn">Clear Saved</button>
+        </div>
+        <div id="savedResults" class="outfit-grid"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: MY CLOSET INVENTORY -->
+    <section id="tab-closet" class="view">
+      <div class="panel" style="margin-bottom:18px;">
+        <div class="panel-title">Add New Item (e.g. Black Friday Pickups)</div>
+        <form id="addItemForm">
+          <div class="form-grid">
+            <div>
+              <label for="newName">Item Name</label>
+              <input id="newName" type="text" placeholder="e.g. Charcoal Waffle Henley" required />
+            </div>
+            <div>
+              <label for="newCat">Category</label>
+              <select id="newCat">
+                <option value="top">Top (Tee / Henley / Sweater / Shirt)</option>
+                <option value="layer">Layer (Overshirt / Jacket / Blazer)</option>
+                <option value="bottom">Bottom (Jeans / Chinos)</option>
+                <option value="footwear">Footwear (Boots / Sneakers)</option>
+              </select>
+            </div>
+            <div>
+              <label for="newSub">Style / Fit Type</label>
+              <select id="newSub">
+                <option value="tee">Fitted Tee</option>
+                <option value="henley">Henley</option>
+                <option value="quarter_zip">Quarter-Zip</option>
+                <option value="button_up">Button-Up / Flannel</option>
+                <option value="hoodie">Zip Hoodie</option>
+                <option value="overshirt">Overshirt / Shacket</option>
+                <option value="jacket">Jacket / Bomber / Trucker</option>
+                <option value="blazer">Blazer / Suit Jacket</option>
+                <option value="winter_coat">Winter Coat</option>
+                <option value="jeans">Jeans</option>
+                <option value="chinos">Chinos / 5-Pocket</option>
+                <option value="boots">Boots</option>
+                <option value="sneakers">Sneakers</option>
+              </select>
+            </div>
+            <div>
+              <label for="newColor">Primary Color</label>
+              <select id="newColor">
+                <option value="black">Black</option>
+                <option value="charcoal">Charcoal</option>
+                <option value="grey">Grey</option>
+                <option value="white">White</option>
+                <option value="navy">Navy / Dark Blue</option>
+                <option value="light_blue">Light Blue</option>
+                <option value="indigo">Dark Indigo</option>
+                <option value="tan">Tan / Khaki</option>
+                <option value="olive">Olive / Sage Green</option>
+                <option value="brown">Brown</option>
+                <option value="burgundy">Burgundy</option>
+              </select>
+            </div>
+            <div>
+              <label for="newNote">Styling Note (Optional)</label>
+              <input id="newNote" type="text" placeholder="e.g. Sleeves pushed up" />
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="submit" class="btn btn-accent">+ Add to Closet</button>
+            <button type="button" class="btn" id="exportBtn">Export Backup JSON</button>
+            <button type="button" class="btn" id="importBtn">Import JSON</button>
+            <button type="button" class="btn btn-danger" id="resetDefaultBtn">Reset to Audited Closet</button>
+            <input type="file" id="importFile" accept=".json" style="display:none;" />
+          </div>
+        </form>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Running Closet Itemization</div>
+        <div class="stats-bar" id="closetStats"></div>
+        <div class="category-pills" id="invFilterPills">
+          <button class="pill active" data-inv="all">All</button>
+          <button class="pill" data-inv="top">Tops</button>
+          <button class="pill" data-inv="layer">Layers</button>
+          <button class="pill" data-inv="bottom">Bottoms</button>
+          <button class="pill" data-inv="footwear">Boots / Shoes</button>
+        </div>
+        <div id="inventoryGrid" class="inventory-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const COLOR_HEX = {
+      black: "#18181b",
+      charcoal: "#374151",
+      grey: "#9ca3af",
+      white: "#f8fafc",
+      navy: "#1e3a5f",
+      light_blue: "#7dd3fc",
+      indigo: "#1e293b",
+      tan: "#c8ad7f",
+      olive: "#5f6f52",
+      brown: "#6b4423",
+      burgundy: "#6b1d2f",
+      red_black: "#991b1b",
+      blue_black: "#1d4ed8"
+    };
+
+    const DEFAULT_CLOSET = [
+      // TOPS - Tees
+      { id: "t_black_crew", name: "Black Crew Tee (x4)", category: "top", subType: "tee", color: "black", note: "Core staple" },
+      { id: "t_black_v", name: "Black V-Neck Tee", category: "top", subType: "tee", color: "black", note: "" },
+      { id: "t_dark_grey_crew", name: "Dark Grey Crew Tee", category: "top", subType: "tee", color: "charcoal", note: "" },
+      { id: "t_white_crew", name: "White Crew Tee", category: "top", subType: "tee", color: "white", note: "" },
+      { id: "t_white_v", name: "White V-Neck Tee (x2)", category: "top", subType: "tee", color: "white", note: "" },
+      { id: "t_navy_crew", name: "Dark Blue / Navy Crew Tee (x3)", category: "top", subType: "tee", color: "navy", note: "" },
+      { id: "t_light_blue_crew", name: "Light Blue Crew Tee (x2)", category: "top", subType: "tee", color: "light_blue", note: "" },
+      { id: "t_olive_raglan", name: "Olive / Sage Raglan Crew Tee", category: "top", subType: "tee", color: "olive", note: "" },
+      { id: "t_fatigue_v", name: "Fatigue / Forest Olive V-Neck Tee", category: "top", subType: "tee", color: "olive", note: "" },
+
+      // TOPS - Henleys & Quarter Zips
+      { id: "t_slate_henley", name: "Slate / Navy Heathered Henley", category: "top", subType: "henley", color: "navy", note: "Push sleeves to mid-forearm" },
+      { id: "t_qz_navy", name: "Navy Fitted Quarter-Zip", category: "top", subType: "quarter_zip", color: "navy", note: "Wear solo, collar slightly open" },
+      { id: "t_qz_grey", name: "Grey Fitted Quarter-Zip", category: "top", subType: "quarter_zip", color: "grey", note: "Wear solo, collar slightly open" },
+      { id: "t_qz_tan", name: "Tan Fitted Quarter-Zip", category: "top", subType: "quarter_zip", color: "tan", note: "Wear solo, collar slightly open" },
+
+      // TOPS - Button Ups & Hoodie
+      { id: "t_white_btn", name: "Crisp White Button-Up", category: "top", subType: "button_up", color: "white", note: "Tuck in under blazer" },
+      { id: "t_navy_plaid", name: "Navy / White / Tan Plaid Shirt", category: "top", subType: "button_up", color: "navy", note: "Buttoned w/ rolled sleeves" },
+      { id: "t_burgundy_dot", name: "Burgundy Micro-Dot Button-Down", category: "top", subType: "button_up", color: "burgundy", note: "Date night, rolled sleeves" },
+      { id: "t_black_hoodie", name: "Black Zip-Up Hoodie", category: "top", subType: "hoodie", color: "black", note: "Layer under trucker/winter coat" },
+
+      // LAYERS / OUTERWEAR
+      { id: "l_suede_bomber", name: "Black Suede Leather Bomber", category: "layer", subType: "jacket", color: "black", note: "Wear open over tee/henley" },
+      { id: "l_tan_overshirt", name: "Tan Structured Overshirt", category: "layer", subType: "overshirt", color: "tan", note: "Wear unbuttoned over tee" },
+      { id: "l_black_overshirt", name: "Black Wool Overshirt", category: "layer", subType: "overshirt", color: "black", note: "Wear unbuttoned over tee/henley" },
+      { id: "l_denim_western", name: "Dark Denim Western Snap Shirt", category: "layer", subType: "overshirt", color: "indigo", note: "Wear open as overshirt" },
+      { id: "l_red_flannel", name: "Red & Black Two-Pocket Flannel", category: "layer", subType: "overshirt", color: "red_black", note: "Wear open over tee" },
+      { id: "l_levis_trucker", name: "Black Levi's Denim Trucker Jacket", category: "layer", subType: "jacket", color: "black", note: "Wear open over tee, henley, or zip hoodie" },
+      { id: "l_shearling", name: "Light Blue Shearling Winter Denim Coat", category: "layer", subType: "winter_coat", color: "light_blue", note: "Deep winter layer" },
+      { id: "l_navy_blazer", name: "Navy Fitted Blazer", category: "layer", subType: "blazer", color: "navy", note: "Smart / contingency" },
+      { id: "l_charcoal_blazer", name: "Charcoal Fitted Blazer", category: "layer", subType: "blazer", color: "charcoal", note: "Date night / smart" },
+
+      // BOTTOMS
+      { id: "b_jet_black", name: "Jet Black Slim Jeans", category: "bottom", subType: "jeans", color: "black", note: "" },
+      { id: "b_charcoal_jeans", name: "Charcoal / Washed Black Jeans", category: "bottom", subType: "jeans", color: "charcoal", note: "" },
+      { id: "b_grey_jeans", name: "Grey Slim Jeans", category: "bottom", subType: "jeans", color: "grey", note: "" },
+      { id: "b_dark_indigo", name: "Dark Indigo Selvedge Jeans", category: "bottom", subType: "jeans", color: "indigo", note: "" },
+      { id: "b_med_blue", name: "Medium-Wash Blue Jeans", category: "bottom", subType: "jeans", color: "light_blue", note: "" },
+      { id: "b_light_blue", name: "Light-Wash Blue Jeans", category: "bottom", subType: "jeans", color: "light_blue", note: "" },
+      { id: "b_tan_5pocket", name: "Tan / Khaki 5-Pocket Pants", category: "bottom", subType: "chinos", color: "tan", note: "" },
+      { id: "b_navy_chinos", name: "Dark Blue Chinos (Contingency)", category: "bottom", subType: "chinos", color: "navy", note: "Pair with blazers/Q-zips" },
+
+      // FOOTWEAR
+      { id: "f_tan_chelsea", name: "Tan Suede Chelsea Boots", category: "footwear", subType: "boots", color: "tan", note: "" },
+      { id: "f_brown_chelsea", name: "Brown Leather Chelsea Boots", category: "footwear", subType: "boots", color: "brown", note: "" },
+      { id: "f_olive_lace", name: "Olive / Dark Brown Suede Lace-Up Boots", category: "footwear", subType: "boots", color: "brown", note: "" },
+      { id: "f_black_chelsea", name: "Black Lug-Sole Chelsea Boots", category: "footwear", subType: "boots", color: "black", note: "" },
+      { id: "f_white_sneaker", name: "White Leather / Gum-Sole Sneakers", category: "footwear", subType: "sneakers", color: "white", note: "Casual only" },
+      { id: "f_black_sneaker", name: "Black Canvas / Gum-Sole Sneakers", category: "footwear", subType: "sneakers", color: "black", note: "Casual only" }
+    ];
+
+    const STORAGE_CLOSET = "closetos_inventory_v1";
+    const STORAGE_SAVED = "closetos_saved_v1";
+
+    let closet = JSON.parse(localStorage.getItem(STORAGE_CLOSET)) || structuredClone(DEFAULT_CLOSET);
+    let savedOutfits = JSON.parse(localStorage.getItem(STORAGE_SAVED)) || [];
+
+    let pickerCat = "top";
+    let selectedItemId = closet.find(i => i.category === "top")?.id || null;
+    let weatherFilter = "all";
+    let invFilter = "all";
+
+    function saveState() {
+      localStorage.setItem(STORAGE_CLOSET, JSON.stringify(closet));
+      localStorage.setItem(STORAGE_SAVED, JSON.stringify(savedOutfits));
+      updateCounts();
+    }
+
+    function updateCounts() {
+      document.getElementById("closetCount").textContent = closet.length;
+      document.getElementById("savedCount").textContent = savedOutfits.length;
+    }
+
+    // --- MENSWEAR PAIRING ENGINE ---
+    function canLayer(layer, top) {
+      if (!layer) return true;
+      if (top.subType === "quarter_zip") return false; // Fitted Q-zips wear solo
+      if (layer.subType === "overshirt") {
+        if (top.subType !== "tee" && top.subType !== "henley") return false;
+      }
+      if (layer.subType === "jacket") {
+        if (layer.id === "l_levis_trucker") {
+          if (!["tee", "henley", "hoodie"].includes(top.subType)) return false;
+        } else {
+          if (!["tee", "henley"].includes(top.subType)) return false;
+        }
+      }
+      if (layer.subType === "winter_coat") {
+        if (!["tee", "henley", "hoodie"].includes(top.subType)) return false;
+      }
+      if (layer.subType === "blazer") {
+        if (top.subType === "tee" && !["black", "white", "charcoal", "grey"].includes(top.color)) return false;
+        if (top.subType === "button_up" && top.color !== "white") return false;
+        if (!["tee", "button_up"].includes(top.subType)) return false;
+      }
+
+      // Color clashes between top & layer
+      if (layer.color === top.color) {
+        // Allow intentional all-black under suede bomber or trucker over hoodie
+        if (layer.color === "black" && (layer.subType === "jacket" || layer.subType === "blazer")) return true;
+        return false;
+      }
+      if (layer.color === "red_black" && !["black", "white", "charcoal"].includes(top.color)) return false;
+      if (layer.color === "indigo" && !["white", "grey", "charcoal", "black", "olive"].includes(top.color)) return false;
+      if (layer.color === "navy" && top.color === "black" && layer.subType === "blazer") return true; // navy blazer + black tee works
+      return true;
+    }
+
+    function validBottom(top, layer, bottom) {
+      const mainTopColor = layer ? layer.color : top.color;
+
+      // Avoid matching same non-black color top-to-bottom
+      if (bottom.color === mainTopColor && mainTopColor !== "black") return false;
+      if (!layer && top.color === bottom.color && top.color !== "black") return false;
+
+      // Avoid navy + black muddy clash on primary pieces
+      if (mainTopColor === "navy" && bottom.color === "black") return false;
+      if (!layer && top.color === "navy" && bottom.color === "black") return false;
+
+      // Light blue denim coat shouldn't pair with light/med blue jeans
+      if (layer && layer.color === "light_blue" && bottom.color === "light_blue") return false;
+
+      // Dark denim western shirt shouldn't pair with blue jeans
+      if (layer && layer.id === "l_denim_western" && ["indigo", "light_blue"].includes(bottom.color)) return false;
+
+      // Red/black flannel looks best with black, charcoal, grey, dark indigo
+      if (layer && layer.color === "red_black" && ["tan", "navy", "light_blue"].includes(bottom.color)) return false;
+
+      // Blazers don't pair with light-wash jeans
+      if (layer && layer.subType === "blazer" && bottom.color === "light_blue") return false;
+      if (layer && layer.subType === "blazer" && bottom.id === "b_med_blue") return false;
+
+      // Burgundy button-down looks sharpest with black, charcoal, grey, dark indigo
+      if (top.color === "burgundy" && ["tan", "light_blue", "navy"].includes(bottom.color)) return false;
+
+      return true;
+    }
+
+    function validFootwear(top, layer, bottom, shoe) {
+      // Blazers & Quarter-Zips -> Boots only
+      if (layer && layer.subType === "blazer" && shoe.subType !== "boots") return false;
+      if (top.subType === "quarter_zip" && shoe.subType !== "boots") return false;
+      if (top.subType === "button_up" && shoe.subType !== "boots") return false;
+
+      // Tan boots shouldn't blend into tan pants
+      if (shoe.color === "tan" && bottom.color === "tan") return false;
+
+      // Black lug boots skip tan chinos
+      if (shoe.color === "black" && shoe.subType === "boots" && bottom.color === "tan") return false;
+
+      // Brown leather chelseas skip jet black jeans
+      if (shoe.id === "f_brown_chelsea" && bottom.color === "black") return false;
+
+      // White sneakers skip dark formal chinos
+      if (shoe.subType === "sneakers" && bottom.id === "b_navy_chinos") return false;
+
+      // Light-wash jeans + brown dress leather chelseas is weak; prefer tan suede or sneakers
+      if (bottom.id === "b_light_blue" && shoe.id === "f_brown_chelsea") return false;
+
+      return true;
+    }
+
+    function classifyOutfit(top, layer, bottom) {
+      if (layer && layer.subType === "blazer") return { key: "smart", label: "Date Night / Smart" };
+      if (top.subType === "button_up" && !layer) return { key: "smart", label: "Date Night / Smart" };
+      if (layer && (layer.subType === "winter_coat" || top.subType === "hoodie")) return { key: "cold", label: "Cold Winter" };
+      if (layer || top.subType === "quarter_zip") return { key: "cool", label: "Cool / Layered" };
+      return { key: "mild", label: "Mild / Casual" };
+    }
+
+    function generateOutfits(filterItemId = null) {
+      const tops = closet.filter(i => i.category === "top");
+      const layers = [null, ...closet.filter(i => i.category === "layer")];
+      const bottoms = closet.filter(i => i.category === "bottom");
+      const shoes = closet.filter(i => i.category === "footwear");
+
+      const results = [];
+      for (const top of tops) {
+        for (const layer of layers) {
+          if (!canLayer(layer, top)) continue;
+          // Skip solo hoodie without a layer
+          if (top.subType === "hoodie" && !layer) continue;
+
+          for (const bottom of bottoms) {
+            if (!validBottom(top, layer, bottom)) continue;
+            for (const shoe of shoes) {
+              if (!validFootwear(top, layer, bottom, shoe)) continue;
+
+              if (filterItemId) {
+                const matches =
+                  top.id === filterItemId ||
+                  (layer && layer.id === filterItemId) ||
+                  bottom.id === filterItemId ||
+                  shoe.id === filterItemId;
+                if (!matches) continue;
+              }
+
+              const weather = classifyOutfit(top, layer, bottom);
+              if (weatherFilter !== "all" && weather.key !== weatherFilter) continue;
+
+              const sig = `${top.id}|${layer ? layer.id : "none"}|${bottom.id}|${shoe.id}`;
+              results.push({ sig, top, layer, bottom, shoe, weather });
+            }
+          }
+        }
+      }
+      return results;
+    }
+
+    // --- RENDERING ---
+    function renderPickerList() {
+      const container = document.getElementById("pickerItemList");
+      const items = closet.filter(i => i.category === pickerCat);
+      container.innerHTML = "";
+
+      if (items.length === 0) {
+        container.innerHTML = `<div class="empty-state">No items in this category.</div>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const btn = document.createElement("button");
+        btn.className = `item-btn ${selectedItemId === item.id ? "selected" : ""}`;
+        btn.innerHTML = `
+          <span class="swatch" style="background:${COLOR_HEX[item.color] || "#64748b"}"></span>
+          <div class="item-meta">
+            <div class="item-name">${item.name}</div>
+            <div class="item-sub">${item.note || item.subType.replace("_", " ")}</div>
+          </div>
+        `;
+        btn.onclick = () => {
+          selectedItemId = item.id;
+          document.getElementById("clearSelectionBtn").style.display = "inline-block";
+          renderPickerList();
+          renderOutfitResults();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function createOutfitCard(o) {
+      const isSaved = savedOutfits.some(s => s.sig === o.sig);
+      const card = document.createElement("div");
+      card.className = "outfit-card";
+
+      const notes = [o.layer?.note, o.top.note].filter(Boolean).join(" · ");
+
+      card.innerHTML = `
+        <div class="outfit-header">
+          <span class="badge ${o.weather.key}">${o.weather.label}</span>
+          <button class="star-btn ${isSaved ? "saved" : ""}" title="Save outfit">${isSaved ? "★" : "☆"}</button>
+        </div>
+        <div class="outfit-pieces">
+          ${o.layer ? `<div class="piece-row"><span class="piece-role">Layer</span><span class="swatch" style="background:${COLOR_HEX[o.layer.color]}"></span><span>${o.layer.name}</span></div>` : ""}
+          <div class="piece-row"><span class="piece-role">Top</span><span class="swatch" style="background:${COLOR_HEX[o.top.color]}"></span><span>${o.top.name}</span></div>
+          <div class="piece-row"><span class="piece-role">Bottom</span><span class="swatch" style="background:${COLOR_HEX[o.bottom.color]}"></span><span>${o.bottom.name}</span></div>
+          <div class="piece-row"><span class="piece-role">Boots</span><span class="swatch" style="background:${COLOR_HEX[o.shoe.color]}"></span><span>${o.shoe.name}</span></div>
+        </div>
+        ${notes ? `<div class="outfit-note">${notes}</div>` : ""}
+      `;
+
+      card.querySelector(".star-btn").onclick = () => {
+        const idx = savedOutfits.findIndex(s => s.sig === o.sig);
+        if (idx >= 0) {
+          savedOutfits.splice(idx, 1);
+        } else {
+          savedOutfits.unshift(o);
+        }
+        saveState();
+        renderOutfitResults();
+        renderSaved();
+      };
+
+      return card;
+    }
+
+    function renderOutfitResults(shuffledSingle = null) {
+      const grid = document.getElementById("outfitResults");
+      const sub = document.getElementById("resultsSubtitle");
+      grid.innerHTML = "";
+
+      if (shuffledSingle) {
+        sub.textContent = "Shuffled 1 ready-to-wear outfit:";
+        grid.appendChild(createOutfitCard(shuffledSingle));
+        return;
+      }
+
+      const outfits = generateOutfits(selectedItemId);
+      const selectedItem = closet.find(i => i.id === selectedItemId);
+
+      if (selectedItem) {
+        sub.textContent = `${outfits.length} valid outfits using "${selectedItem.name}"`;
+      } else {
+        sub.textContent = `Showing ${Math.min(outfits.length, 48)} of ${outfits.length} total combinations`;
+      }
+
+      if (outfits.length === 0) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">No outfits match that item + weather filter. Try switching Weather to "All Weather".</div>`;
+        return;
+      }
+
+      outfits.slice(0, 48).forEach(o => grid.appendChild(createOutfitCard(o)));
+    }
+
+    function renderSaved() {
+      const grid = document.getElementById("savedResults");
+      grid.innerHTML = "";
+      if (savedOutfits.length === 0) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">No saved outfits yet. Click the ★ on any outfit in the Outfit Finder to pin it here.</div>`;
+        return;
+      }
+      savedOutfits.forEach(o => grid.appendChild(createOutfitCard(o)));
+    }
+
+    function renderInventory() {
+      const grid = document.getElementById("inventoryGrid");
+      const stats = document.getElementById("closetStats");
+      const counts = {
+        top: closet.filter(i => i.category === "top").length,
+        layer: closet.filter(i => i.category === "layer").length,
+        bottom: closet.filter(i => i.category === "bottom").length,
+        footwear: closet.filter(i => i.category === "footwear").length
+      };
+      stats.innerHTML = `
+        <span>Tops: <strong>${counts.top}</strong></span>
+        <span>Layers: <strong>${counts.layer}</strong></span>
+        <span>Bottoms: <strong>${counts.bottom}</strong></span>
+        <span>Boots/Shoes: <strong>${counts.footwear}</strong></span>
+        <span>Total Possible Outfits: <strong>${generateOutfits(null).length}</strong></span>
+      `;
+
+      const items = invFilter === "all" ? closet : closet.filter(i => i.category === invFilter);
+      grid.innerHTML = "";
+      items.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "inv-card";
+        card.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <span class="swatch" style="background:${COLOR_HEX[item.color] || "#64748b"}"></span>
+            <div style="min-width:0;">
+              <div class="item-name">${item.name}</div>
+              <div class="item-sub">${item.category} · ${item.subType.replace("_", " ")}</div>
+            </div>
+          </div>
+          <button class="btn btn-danger" style="padding:5px 9px;font-size:0.75rem;">Remove</button>
+        `;
+        card.querySelector("button").onclick = () => {
+          closet = closet.filter(x => x.id !== item.id);
+          if (selectedItemId === item.id) selectedItemId = null;
+          saveState();
+          renderInventory();
+          renderPickerList();
+          renderOutfitResults();
+        };
+        grid.appendChild(card);
+      });
+    }
+
+    // --- EVENT LISTENERS ---
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+        if (btn.dataset.tab === "saved") renderSaved();
+        if (btn.dataset.tab === "closet") renderInventory();
+      };
+    });
+
+    document.querySelectorAll("#pickerCatPills .pill").forEach(p => {
+      p.onclick = () => {
+        document.querySelectorAll("#pickerCatPills .pill").forEach(x => x.classList.remove("active"));
+        p.classList.add("active");
+        pickerCat = p.dataset.cat;
+        renderPickerList();
+      };
+    });
+
+    document.querySelectorAll("#weatherPills .pill").forEach(p => {
+      p.onclick = () => {
+        document.querySelectorAll("#weatherPills .pill").forEach(x => x.classList.remove("active"));
+        p.classList.add("active");
+        weatherFilter = p.dataset.weather;
+        renderOutfitResults();
+      };
+    });
+
+    document.querySelectorAll("#invFilterPills .pill").forEach(p => {
+      p.onclick = () => {
+        document.querySelectorAll("#invFilterPills .pill").forEach(x => x.classList.remove("active"));
+        p.classList.add("active");
+        invFilter = p.dataset.inv;
+        renderInventory();
+      };
+    });
+
+    document.getElementById("clearSelectionBtn").onclick = () => {
+      selectedItemId = null;
+      document.getElementById("clearSelectionBtn").style.display = "none";
+      renderPickerList();
+      renderOutfitResults();
+    };
+
+    document.getElementById("shuffleBtn").onclick = () => {
+      const outfits = generateOutfits(selectedItemId);
+      if (outfits.length === 0) return renderOutfitResults();
+      const pick = outfits[Math.floor(Math.random() * outfits.length)];
+      renderOutfitResults(pick);
+    };
+
+    document.getElementById("clearSavedBtn").onclick = () => {
+      savedOutfits = [];
+      saveState();
+      renderSaved();
+      renderOutfitResults();
+    };
+
+    document.getElementById("addItemForm").onsubmit = (e) => {
+      e.preventDefault();
+      const name = document.getElementById("newName").value.trim();
+      if (!name) return;
+      const newItem = {
+        id: "custom_" + Date.now(),
+        name,
+        category: document.getElementById("newCat").value,
+        subType: document.getElementById("newSub").value,
+        color: document.getElementById("newColor").value,
+        note: document.getElementById("newNote").value.trim()
+      };
+      closet.unshift(newItem);
+      saveState();
+      document.getElementById("addItemForm").reset();
+      renderInventory();
+      renderPickerList();
+      renderOutfitResults();
+    };
+
+    document.getElementById("resetDefaultBtn").onclick = () => {
+      closet = structuredClone(DEFAULT_CLOSET);
+      selectedItemId = closet[0].id;
+      saveState();
+      renderInventory();
+      renderPickerList();
+      renderOutfitResults();
+    };
+
+    document.getElementById("exportBtn").onclick = () => {
+      const blob = new Blob([JSON.stringify({ closet, savedOutfits }, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "closetos-backup.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    document.getElementById("importBtn").onclick = () => document.getElementById("importFile").click();
+    document.getElementById("importFile").onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (Array.isArray(data.closet)) closet = data.closet;
+          if (Array.isArray(data.savedOutfits)) savedOutfits = data.savedOutfits;
+          saveState();
+          renderInventory();
+          renderPickerList();
+          renderOutfitResults();
+        } catch {
+          alert("Invalid JSON backup file.");
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    // Init
+    updateCounts();
+    if (selectedItemId) document.getElementById("clearSelectionBtn").style.display = "inline-block";
+    renderPickerList();
+    renderOutfitResults();
+  </script>
+</body>
+</html>
