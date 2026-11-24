@@ -550,6 +550,29 @@
       </div>
 
       <div class="panel">
+        <div class="panel-title">Cloud Sync (GitHub Gist)</div>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;">
+          Sync your closet &amp; starred looks between desktop and phone using one Secret Gist. Credentials stay only in this browser.
+        </p>
+        <div class="form-grid" style="margin-bottom:12px;">
+          <div>
+            <label for="syncGistId">Secret Gist ID (or URL)</label>
+            <input id="syncGistId" type="text" placeholder="e.g. a1b2c3d4e5f6... or full gist URL" />
+          </div>
+          <div>
+            <label for="syncToken">GitHub Token (gist scope)</label>
+            <input id="syncToken" type="password" placeholder="ghp_... or github_pat_..." />
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button type="button" class="btn btn-accent" id="syncConnectBtn">Connect &amp; Sync</button>
+          <button type="button" class="btn" id="syncPullBtn">Pull Latest</button>
+          <button type="button" class="btn btn-danger" id="syncDisconnectBtn" style="display:none;">Disconnect</button>
+          <span id="syncStatus" style="font-size:0.8rem;color:var(--muted);">Not connected</span>
+        </div>
+      </div>
+
+      <div class="panel">
         <div class="panel-title">Running Closet Itemization</div>
         <div class="stats-bar" id="closetStats"></div>
         <div class="category-pills" id="invFilterPills">
@@ -638,19 +661,126 @@
 
     const STORAGE_CLOSET = "closetos_inventory_v1";
     const STORAGE_SAVED = "closetos_saved_v1";
+    const STORAGE_SYNC = "closetos_sync_v1";
+    const GIST_FILENAME = "closetos-data.json";
 
     let closet = JSON.parse(localStorage.getItem(STORAGE_CLOSET)) || structuredClone(DEFAULT_CLOSET);
     let savedOutfits = JSON.parse(localStorage.getItem(STORAGE_SAVED)) || [];
+    let syncConfig = JSON.parse(localStorage.getItem(STORAGE_SYNC)) || { gistId: "", token: "" };
+    let syncPushTimer = null;
 
     let pickerCat = "top";
     let selectedItemId = closet.find(i => i.category === "top")?.id || null;
     let weatherFilter = "all";
     let invFilter = "all";
 
+    function parseGistId(input) {
+      const trimmed = (input || "").trim();
+      if (!trimmed) return "";
+      const parts = trimmed.replace(/\/+$/, "").split("/");
+      return parts[parts.length - 1];
+    }
+
+    function setSyncStatus(msg, isError = false) {
+      const el = document.getElementById("syncStatus");
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = isError ? "var(--red)" : "var(--muted)";
+    }
+
+    function refreshSyncUI() {
+      const idEl = document.getElementById("syncGistId");
+      const tokEl = document.getElementById("syncToken");
+      const discBtn = document.getElementById("syncDisconnectBtn");
+      if (idEl && syncConfig.gistId) idEl.value = syncConfig.gistId;
+      if (tokEl && syncConfig.token) tokEl.value = syncConfig.token;
+      if (discBtn) discBtn.style.display = (syncConfig.gistId && syncConfig.token) ? "inline-block" : "none";
+    }
+
+    async function pushToGist() {
+      if (!syncConfig.gistId || !syncConfig.token) return;
+      setSyncStatus("Syncing...");
+      try {
+        const res = await fetch(`https://api.github.com/gists/${syncConfig.gistId}`, {
+          method: "PATCH",
+          headers: {
+            "Accept": "application/vnd.github+json",
+            "Authorization": `Bearer ${syncConfig.token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            files: {
+              [GIST_FILENAME]: {
+                content: JSON.stringify({ closet, savedOutfits, updatedAt: new Date().toISOString() }, null, 2)
+              }
+            }
+          })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setSyncStatus(`Synced at ${time}`);
+      } catch (err) {
+        setSyncStatus(`Sync push failed (${err.message})`, true);
+      }
+    }
+
+    async function pullFromGist(initIfEmpty = false) {
+      if (!syncConfig.gistId || !syncConfig.token) return;
+      setSyncStatus("Checking cloud...");
+      try {
+        const res = await fetch(`https://api.github.com/gists/${syncConfig.gistId}`, {
+          headers: {
+            "Accept": "application/vnd.github+json",
+            "Authorization": `Bearer ${syncConfig.token}`
+          },
+          cache: "no-store"
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const gist = await res.json();
+        const fileObj = gist.files?.[GIST_FILENAME] || Object.values(gist.files || {})[0];
+        let parsed = null;
+        try {
+          parsed = fileObj?.content ? JSON.parse(fileObj.content) : null;
+        } catch {
+          parsed = null;
+        }
+
+        if (parsed && Array.isArray(parsed.closet) && parsed.closet.length > 0) {
+          closet = parsed.closet;
+          if (Array.isArray(parsed.savedOutfits)) savedOutfits = parsed.savedOutfits;
+          if (!closet.some(i => i.id === selectedItemId)) {
+            selectedItemId = closet.find(i => i.category === "top")?.id || null;
+          }
+          localStorage.setItem(STORAGE_CLOSET, JSON.stringify(closet));
+          localStorage.setItem(STORAGE_SAVED, JSON.stringify(savedOutfits));
+          updateCounts();
+          renderPickerList();
+          renderOutfitResults();
+          renderSaved();
+          renderInventory();
+          const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          setSyncStatus(`Pulled at ${time}`);
+        } else if (initIfEmpty) {
+          await pushToGist();
+        } else {
+          setSyncStatus("Connected (no cloud data yet)");
+        }
+      } catch (err) {
+        setSyncStatus(`Sync pull failed (${err.message})`, true);
+      }
+    }
+
+    function scheduleGistPush() {
+      if (!syncConfig.gistId || !syncConfig.token) return;
+      clearTimeout(syncPushTimer);
+      syncPushTimer = setTimeout(pushToGist, 600);
+    }
+
     function saveState() {
       localStorage.setItem(STORAGE_CLOSET, JSON.stringify(closet));
       localStorage.setItem(STORAGE_SAVED, JSON.stringify(savedOutfits));
       updateCounts();
+      scheduleGistPush();
     }
 
     function updateCounts() {
@@ -1063,11 +1193,43 @@
       reader.readAsText(file);
     };
 
+    document.getElementById("syncConnectBtn").onclick = () => {
+      const gistId = parseGistId(document.getElementById("syncGistId").value);
+      const token = document.getElementById("syncToken").value.trim();
+      if (!gistId || !token) {
+        setSyncStatus("Enter both Gist ID and Token", true);
+        return;
+      }
+      syncConfig = { gistId, token };
+      localStorage.setItem(STORAGE_SYNC, JSON.stringify(syncConfig));
+      refreshSyncUI();
+      pullFromGist(true);
+    };
+
+    document.getElementById("syncPullBtn").onclick = () => {
+      if (!syncConfig.gistId || !syncConfig.token) {
+        setSyncStatus("Connect a Gist first", true);
+        return;
+      }
+      pullFromGist(false);
+    };
+
+    document.getElementById("syncDisconnectBtn").onclick = () => {
+      syncConfig = { gistId: "", token: "" };
+      localStorage.removeItem(STORAGE_SYNC);
+      document.getElementById("syncGistId").value = "";
+      document.getElementById("syncToken").value = "";
+      refreshSyncUI();
+      setSyncStatus("Not connected");
+    };
+
     // Init
     updateCounts();
+    refreshSyncUI();
     if (selectedItemId) document.getElementById("clearSelectionBtn").style.display = "inline-block";
     renderPickerList();
     renderOutfitResults();
+    if (syncConfig.gistId && syncConfig.token) pullFromGist(false);
   </script>
 </body>
 </html>
