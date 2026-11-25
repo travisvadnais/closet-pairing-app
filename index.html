@@ -205,6 +205,38 @@
       background: var(--accent-soft);
     }
 
+    .item-btn.in-laundry {
+      opacity: 0.52;
+    }
+
+    .item-btn.in-laundry .item-name {
+      text-decoration: line-through;
+    }
+
+    .laundry-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 3px 7px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: 0.15s;
+    }
+
+    .laundry-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .laundry-btn.active {
+      background: rgba(248, 113, 113, 0.16);
+      border-color: rgba(248, 113, 113, 0.45);
+      color: var(--red);
+    }
+
     .swatch {
       width: 16px;
       height: 16px;
@@ -432,7 +464,10 @@
         <div class="panel">
           <div class="panel-title">
             <span>1. Pick Any Item</span>
-            <button class="pill" id="clearSelectionBtn" style="display:none;">Clear</button>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button class="pill" id="clearLaundryBtn" style="display:none;color:var(--red);border-color:rgba(248,113,113,0.4);">Clean All (0)</button>
+              <button class="pill" id="clearSelectionBtn" style="display:none;">Clear</button>
+            </div>
           </div>
           <div class="category-pills" id="pickerCatPills">
             <button class="pill active" data-cat="top">Tops</button>
@@ -663,11 +698,13 @@
 
     const STORAGE_CLOSET = "closetos_inventory_v1";
     const STORAGE_SAVED = "closetos_saved_v1";
+    const STORAGE_LAUNDRY = "closetos_laundry_v1";
     const STORAGE_SYNC = "closetos_sync_v1";
     const GIST_FILENAME = "closetos-data.json";
 
     let closet = JSON.parse(localStorage.getItem(STORAGE_CLOSET)) || structuredClone(DEFAULT_CLOSET);
     let savedOutfits = JSON.parse(localStorage.getItem(STORAGE_SAVED)) || [];
+    let laundryIds = JSON.parse(localStorage.getItem(STORAGE_LAUNDRY)) || [];
     let syncConfig = JSON.parse(localStorage.getItem(STORAGE_SYNC)) || { gistId: "", token: "" };
     let syncPushTimer = null;
 
@@ -713,7 +750,7 @@
           body: JSON.stringify({
             files: {
               [GIST_FILENAME]: {
-                content: JSON.stringify({ closet, savedOutfits, updatedAt: new Date().toISOString() }, null, 2)
+                content: JSON.stringify({ closet, savedOutfits, laundryIds, updatedAt: new Date().toISOString() }, null, 2)
               }
             }
           })
@@ -750,11 +787,13 @@
         if (parsed && Array.isArray(parsed.closet) && parsed.closet.length > 0) {
           closet = parsed.closet;
           if (Array.isArray(parsed.savedOutfits)) savedOutfits = parsed.savedOutfits;
+          if (Array.isArray(parsed.laundryIds)) laundryIds = parsed.laundryIds;
           if (!closet.some(i => i.id === selectedItemId)) {
             selectedItemId = closet.find(i => i.category === "top")?.id || null;
           }
           localStorage.setItem(STORAGE_CLOSET, JSON.stringify(closet));
           localStorage.setItem(STORAGE_SAVED, JSON.stringify(savedOutfits));
+          localStorage.setItem(STORAGE_LAUNDRY, JSON.stringify(laundryIds));
           updateCounts();
           renderPickerList();
           renderOutfitResults();
@@ -781,6 +820,7 @@
     function saveState() {
       localStorage.setItem(STORAGE_CLOSET, JSON.stringify(closet));
       localStorage.setItem(STORAGE_SAVED, JSON.stringify(savedOutfits));
+      localStorage.setItem(STORAGE_LAUNDRY, JSON.stringify(laundryIds));
       updateCounts();
       scheduleGistPush();
     }
@@ -788,6 +828,11 @@
     function updateCounts() {
       document.getElementById("closetCount").textContent = closet.length;
       document.getElementById("savedCount").textContent = savedOutfits.length;
+      const clearLaundryBtn = document.getElementById("clearLaundryBtn");
+      if (clearLaundryBtn) {
+        clearLaundryBtn.style.display = laundryIds.length > 0 ? "inline-block" : "none";
+        clearLaundryBtn.textContent = `Clean All (${laundryIds.length})`;
+      }
     }
 
     // --- MENSWEAR PAIRING ENGINE ---
@@ -888,10 +933,11 @@
     }
 
     function generateOutfits(filterItemId = null) {
-      const tops = closet.filter(i => i.category === "top");
-      const layers = [null, ...closet.filter(i => i.category === "layer")];
-      const bottoms = closet.filter(i => i.category === "bottom");
-      const shoes = closet.filter(i => i.category === "footwear");
+      const isClean = i => !laundryIds.includes(i.id);
+      const tops = closet.filter(i => i.category === "top" && isClean(i));
+      const layers = [null, ...closet.filter(i => i.category === "layer" && isClean(i))];
+      const bottoms = closet.filter(i => i.category === "bottom" && isClean(i));
+      const shoes = closet.filter(i => i.category === "footwear" && isClean(i));
 
       const results = [];
       for (const top of tops) {
@@ -938,15 +984,29 @@
       }
 
       items.forEach(item => {
+        const inLaundry = laundryIds.includes(item.id);
         const btn = document.createElement("button");
-        btn.className = `item-btn ${selectedItemId === item.id ? "selected" : ""}`;
+        btn.className = `item-btn ${selectedItemId === item.id ? "selected" : ""} ${inLaundry ? "in-laundry" : ""}`;
         btn.innerHTML = `
           <span class="swatch" style="background:${COLOR_HEX[item.color] || "#64748b"}"></span>
           <div class="item-meta">
             <div class="item-name">${item.name}</div>
-            <div class="item-sub">${item.note || item.subType.replace("_", " ")}</div>
+            <div class="item-sub">${inLaundry ? "In laundry" : (item.note || item.subType.replace("_", " "))}</div>
           </div>
+          <span class="laundry-btn ${inLaundry ? "active" : ""}" role="button" title="Toggle in laundry">${inLaundry ? "In Laundry" : "Laundry"}</span>
         `;
+        btn.querySelector(".laundry-btn").onclick = (e) => {
+          e.stopPropagation();
+          if (laundryIds.includes(item.id)) {
+            laundryIds = laundryIds.filter(id => id !== item.id);
+          } else {
+            laundryIds.push(item.id);
+          }
+          saveState();
+          renderPickerList();
+          renderOutfitResults();
+          renderSaved();
+        };
         btn.onclick = () => {
           selectedItemId = item.id;
           document.getElementById("clearSelectionBtn").style.display = "inline-block";
@@ -1008,9 +1068,13 @@
       const selectedItem = closet.find(i => i.id === selectedItemId);
 
       if (selectedItem) {
-        sub.textContent = `${outfits.length} valid outfits using "${selectedItem.name}"`;
+        if (laundryIds.includes(selectedItem.id)) {
+          sub.textContent = `"${selectedItem.name}" is marked In Laundry — click "In Laundry" to make it available`;
+        } else {
+          sub.textContent = `${outfits.length} valid outfits using "${selectedItem.name}"${laundryIds.length ? ` · ${laundryIds.length} in laundry excluded` : ""}`;
+        }
       } else {
-        sub.textContent = `Showing ${Math.min(outfits.length, 48)} of ${outfits.length} total combinations`;
+        sub.textContent = `Showing ${Math.min(outfits.length, 48)} of ${outfits.length} total combinations${laundryIds.length ? ` · ${laundryIds.length} in laundry excluded` : ""}`;
       }
 
       if (outfits.length === 0) {
@@ -1065,6 +1129,7 @@
         `;
         card.querySelector("button").onclick = () => {
           closet = closet.filter(x => x.id !== item.id);
+          laundryIds = laundryIds.filter(id => id !== item.id);
           if (selectedItemId === item.id) selectedItemId = null;
           saveState();
           renderInventory();
@@ -1113,6 +1178,14 @@
         renderInventory();
       };
     });
+
+    document.getElementById("clearLaundryBtn").onclick = () => {
+      laundryIds = [];
+      saveState();
+      renderPickerList();
+      renderOutfitResults();
+      renderSaved();
+    };
 
     document.getElementById("clearSelectionBtn").onclick = () => {
       selectedItemId = null;
@@ -1165,7 +1238,7 @@
     };
 
     document.getElementById("exportBtn").onclick = () => {
-      const blob = new Blob([JSON.stringify({ closet, savedOutfits }, null, 2)], { type: "application/json" });
+      const blob = new Blob([JSON.stringify({ closet, savedOutfits, laundryIds }, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -1184,6 +1257,7 @@
           const data = JSON.parse(reader.result);
           if (Array.isArray(data.closet)) closet = data.closet;
           if (Array.isArray(data.savedOutfits)) savedOutfits = data.savedOutfits;
+          if (Array.isArray(data.laundryIds)) laundryIds = data.laundryIds;
           saveState();
           renderInventory();
           renderPickerList();
